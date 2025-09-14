@@ -1,0 +1,175 @@
+passport.serializeUser((user, done) => {
+    done(null, user.id); 
+});
+
+Here :
+user → is the user object returned after login (Google, DB, etc.).
+user.id → is what gets saved inside the session cookie.
+
+📌 1. passport.serializeUser
+This is a Passport-provided hook (function).
+When you log a user in, Passport calls this function to ask:
+👉 “Hey developer, what piece of the user object should I save inside the session cookie?”
+You implement it by passing a callback (user, done).
+📌 2. (user, done) parameters
+user → This is the full user object (from DB or Google, depending on login strategy).
+Example:
+{
+   _id: "65ab123...",
+   name: "Nikhil",
+   email: "nikhil@example.com"
+}
+
+done → This is a callback function provided by assport.
+You must call done(error, dataToStoreInSession).
+📌 3. Why done(null, user.id)?
+done takes 2 arguments:
+error → if something goes wrong, pass an error object here. If no error → pass null.
+That’s why you see null. It means “no error happened.”
+user.id → this is the unique identifier Passport should store in the session cookie.
+We don’t store the whole user.
+Just the ID (small, secure, easy to fetch later).
+So, this line:
+done(null, user.id);
+means:
+✅ No error (null).
+✅ Save only the user.id in the session cookie.
+📌 4. Why not done(error, somethingElse)?
+If login fails or you hit DB issues, you might call:
+done(new Error("DB not reachable"), null);
+
+→ Passport will stop and handle the error.
+If successful, we just pass null (no error) and the thing we want to save (usually user.id).
+📌 5. Why the name done?
+It’s just a convention from Passport.
+Think of it like next in Express middleware.
+You could imagine it as callback, but Passport internally expects the second parameter to be called, so it’s always named done.
+✅ So the magic of:
+passport.serializeUser((user, done) => {
+    done(null, user.id);
+});
+
+is:
+Passport says: “Tell me what to store in the cookie.”
+You answer: “Store only the user.id.”
+You tell Passport there’s no error by passing null first.
+
+
+
+2. 2️⃣ Now: deserializeUser
+🟢 3. Deserialize
+👉 “How do we get the full user back from the cookie data?”
+When the user makes a request, Passport reads the session cookie.
+The cookie only has the user.id.
+Every time the user makes a request, Passport needs the full user object again (not just the id).
+This is where deserializeUser comes in:
+
+passport.deserializeUser((id,done)=>{ 
+     // Look up the user in the DB by their id
+    User.findById(id).
+    then(user=>done(null,user)).
+    catch(err=>done(err,null)); 
+}); 
+OR 
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await User.findById(id); // ye vo id he jo session se aarahi he ok. 
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
+
+
+3️⃣ Step by Step Flow: 
+First Login
+User logs in with Google or Local Strategy.
+Passport gets the user object.
+serializeUser runs → saves only user.id in session
+Cookie with session ID is sent to browser.
+************************************************************************************
+This fetches the full user object from the DB and attaches it to req.user.
+Now in your route handlers, you can access req.user.name, req.user.email, etc.
+************************************************************************************
+
+
+--------------------NOW WE UNDERSTAND THE PASSPORT--------------------
+1️⃣ app.use(passport.initialize())
+This initializes Passport for your Express app.
+It sets up the middleware needed to handle authentication.
+Think of it as telling Express
+“Hey, we are going to use Passport to handle login and authentication in this app, so prepare it.”
+What it does internally:
+Adds methods like req.login(), req.logout(), and req.isAuthenticated() to the request object.
+Prepares Passport to work with strategies (Google, local, etc.).
+If you don’t call this, Passport won’t work at all, even if you define strategies.
+
+
+2️⃣ app.use(passport.session());
+This is required if you want session-based authentication (keeping the user logged in).
+It works together with express-session.
+What it does:
+Reads the session cookie (connect.sid) from the incoming request.
+Finds the session object in your session store (Mongo, memory, Redis, etc.).
+Calls deserializeUser with the ID stored in the session.
+Attaches the full user object to req.user.
+
+
+Passport uses strategies to handle different types of authentication.
+GoogleStrategy is for OAuth 2.0 login via Google.
+You configure it with your app’s client ID, client secret, and callback URL.
+Passport will handle redirecting the user to Google and receiving the authentication response.
+
+passport.use(
+new GoogleStrategy({
+    clientId:[], 
+    clientSecret:[], 
+    callbackURL: 'http://localhost:3000/auth/google/callback',    
+},
+
+))
+
+
+3️⃣ Breaking it down
+🔹 passport.use(...)
+Registers a new authentication strategy with Passport.
+
+In this case, it’s Google OAuth 2.0.
+new GoogleStrategy({ ... }, callback)
+First argument = configuration object
+Second argument = verify callback function
+🔹 Configuration Object
+Property	Explanation
+clientID	Your Google OAuth Client ID (from Google Cloud Console).
+clientSecret	Your Google OAuth Client Secret (from Google Cloud Console).
+callbackURL	The route in your app where Google redirects after login.: http://localhost:3000/auth/google/callback'
+Google will redirect the user here with an authorization code.
+This URL must also be registered in Google Cloud for security.
+Verify Callback (accessToken, refreshToken, profile, done)
+This function is called after Google successfully authenticates the user.
+Parameter	                                        Explanation
+accessToken	                    Token you can use to call Google APIs on behalf of the user.
+refreshToken	                Token to get a new access token once the first expires (optional).
+profile	User’s                  Google profile info (name, email, Google ID, etc.).
+done	                        Passport callback — signals that authentication is complete.
+
+Inside this callback, you typically:
+Check if the user exists in your database.
+If not, create a new user.
+Call done(null, user) → Passport then serializes the user into the session.
+return done(null, profile);
+
+// Now Applying the Routes 
+
+{ scope: ['profile', 'email'] }
+
+scope tells Google what information your app wants to access.
+
+Examples:
+
+'profile' → Basic profile info (name, photo).
+
+'email' → User’s email address.
+
+'openid' → Google ID (unique identifier).
+

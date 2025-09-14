@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login with Google</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f9f9f9;
+    }
+    .container {
+      text-align: center;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+    }
+    .google-btn {
+      display: inline-flex;
+      align-items: center;
+      background: #fff;
+      color: #555;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: 0.2s;
+    }
+    .google-btn:hover {
+      background: #f0f0f0;
+    }
+    .google-logo {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to My App</h1>
+    <a class="google-btn" href="/auth/google">
+      <img class="google-logo" src="https://developers.google.com/identity/images/g-logo.png" alt="Google Logo">
+      Login with Google
+    </a>
+  </div>
+</body>
+</html>

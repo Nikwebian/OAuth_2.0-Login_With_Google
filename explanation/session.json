@@ -1,0 +1,98 @@
+
+
+What is Session? 
+A Session is a way to store User Data on the Server after they log in. 
+
+When a user authenticates (e.g., username + password), the server creates a session and assigns it a : Session ID.
+That Session ID is stored in the user’s browser cookie.
+On every request, the browser sends the cookie → server looks up the session → knows which user is logged in.
+
+With resave: true:
+Every time you hit any endpoint (even /profile that doesn’t change anything), the session document will be rewritten in MongoDB → new expires timestamp (refresh TTL).
+
+With resave: false:
+Only when you actually modify req.session (e.g., req.session.user.role = "admin") will the session document in MongoDB be rewritten.
+If you just make a request without changing anything, Mongo doesn’t get a write query — only read.
+
+🔹 Why does this matter?
+Resave true →
+Mongo gets a write on every request.
+Even if you have 1000 users doing nothing but refreshing pages, your DB gets hammered.
+Not scalable.
+Resave false →
+Mongo only gets a write when you change session data.
+Requests that don’t touch req.session won’t update the DB.
+Much more efficient.
+
+
+3. saveUninitialized: true  | false 
+ 🔹 What does “uninitialized session” mean?
+When a user first visits your site, they don’t have a session yet.
+Express will create a session object in memory for them (req.session), but it is empty (not modified).
+This is called an uninitialized session.
+
+🔹 Now, what does saveUninitialized do?
+Case 1: saveUninitialized: true
+Even if the session is empty, Express will store it in the session store (Mongo/Redis/etc) and send a connect.sid cookie to the user.
+Case 2: saveUninitialized: false ✅ (best practice)
+Express will not save the session until you actually put something in req.session.
+
+📌 Case 1: saveUninitialized: true
+A new session will be created for every new client that hits your server, even if you didn’t modify req.session.
+Example:
+You start the server. ✅ (No sessions created yet.)
+A new user just visits /home (no login, no data).
+Express-session creates an empty session object and stores it in Mongo (or memory).
+A cookie with the session ID is sent back to the browser.
+👉 This can lead to many “blank” sessions in your store if you have lots of random visitors or bots.
+
+📌 Case 2: saveUninitialized: false
+A new session will not be created until you actually put something in req.session.
+Example:
+You start the server. ✅ (Still no sessions created.)
+A new user visits /home.
+Since you didn’t store anything in req.session, no session is created, no cookie is sent.
+Once the user logs in and you do something like:
+req.session.userId = user._id;
+
+→ Now the session is created and saved to the store.
+→ A cookie is sent to the browser.
+👉 This avoids creating unnecessary empty sessions for non-logged-in users.
+
+3. cookie: {maxAge: 1000*60*60, httpOnly:true}
+
+
+1. maxAge: 1000 * 60 * 60
+This defines how long the cookie should live in the browser.
+It’s in milliseconds.
+1000 ms = 1 second
+* 60 = 1 minute
+* 60 = 1 hour
+👉 So here, the cookie will expire in 1 hour.
+After 1 hour:
+The cookie is deleted from the browser.
+The user session is no longer recognized → they’d have to log in again (unless you implement refresh logic).
+⚡ Note: This is the cookie lifetime, not necessarily the DB session lifetime. In many session stores (e.g., Mongo, Redis), they also set a TTL (time to live) on the session data so it gets cleared from DB after expiry.
+
+2.httpOnly: true
+This makes the cookie unreadable by JavaScript in the browser (document.cookie).
+Only the browser itself can send the cookie automatically with every HTTP request.
+Purpose = protection against XSS (Cross-Site Scripting) attacks.
+
+
+NOW FOR MOVING TOWARDS THE PASSPORT I SHOULD KNOW ABOUT THE SERIALIZE AND DESERIALIZE. 
+
+serializeUser → reduce object → session ID
+deserializeUser → expand session ID → full user
+
+🟢 1. Why do we need serialize/deserialize?
+When a user logs in, Passport needs to store some information in the session cookie.
+But…
+We don’t want to store the full user object in the session cookie (too large + insecure).
+Instead, we store just a unique identifier (usually the user’s _id from MongoDB).
+Later, when the user makes another request, Passport uses that ID to fetch the full user from the DB.
+🟢 2. Serialize
+👉 “What do we put in the cookie?”
+After login, Passport calls serializeUser.
+You decide what data of the user should be stored in the session.
+Usually, you store the user._id.

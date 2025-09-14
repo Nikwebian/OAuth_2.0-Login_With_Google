@@ -1,0 +1,237 @@
+
+
+*************************************************************************************************
+Oauth.json 
+
+OAuth : Open Authentication: OAuth (Open Authorization) is an open-standard authorization framework that allows an 
+application to access user-protected resources on another service without requiring the user to share their credentials.
+It works by issuing temporary access tokens to the application, which proves the application has been granted permission to access specific data or perform actions on the user's behalf. 
+
+
+
+
+O-Auth Steps to do so is 
+1. User Request:
+A user wants to use a third-party application (e.g., a photo editing app) that needs access to their private data (e.g., photos) on another service (e.g., Google Photos). 
+2. Application Initiates Authorization:
+The third-party app directs the user to the service provider (Google Photos) to authorize the request. 
+3. User Grants Permission:
+The service provider prompts the user to log in and grant the application permission to access specific resources, defining the "scope" of the access. 
+4. Authorization Granted:
+If the user consents, the service provider gives the third-party app an access token and/or refresh token. 
+5. Accessing Resources:
+The third-party app uses the access token to request the user's data from the service provider's API, acting as if it were the user. 
+6. Data Retrieval:
+The service provider validates the token and returns the requested data to the third-party app
+
+
+
+// INSIDE THE TOKEN WE WILL GET 2 TOKENS 
+// Audience = Your App's Client ID 
+// Issuer = Account's Google.com
+// or Issuer = 'https://accountsgoogle.com 
+// sub : (subject ) it is a User Id 
+
+1. What is a session?
+Imagine you're logging into a website. The server needs to remember that you're logged in as you click from page to page. HTTP is stateless—it doesn't remember anything from one request to the next.
+
+A session solves this. It's like the server giving you a membership card when you log in.
+
+Login: You prove your identity (e.g., with Google OAuth).
+
+Create Session: The server creates a temporary record (the session) in its database or memory with your user ID. This session has a unique ID.
+
+Set Cookie: The server sends that unique session ID back to your browser and tells the browser to store it as a cookie.
+
+Subsequent Requests: Every time your browser makes a new request to that server, it automatically sends the cookie with the session ID back.
+
+Server Remembers: The server receives the cookie, looks up the session ID in its database, sees your user ID, and knows who you are. It attaches your user information to the req object (as req.user).
+
+In short: A session is a server-side storage of user-specific data that is linked to a user's browser via a cookie.
+
+--------------why third party modules and what they will do ---------------------
+
+express-session: This module handles the complex task of managing sessions for you. It:
+
+Creates the session.
+
+Sets the correct cookie on the browser.
+
+Provides a store for the session data (in memory, or in databases like Redis/MongoDB).
+
+Automatically parses the incoming cookie and finds the right session data for each request.
+
+passport: This module handles the complex task of authentication. It provides a standardized way to:
+
+Execute different login strategies (Google, username/password, etc.).
+
+"Serialize" the user into the session (just storing the user ID).
+
+"Deserialize" the user from the session (taking the ID from the session and fetching the full user object from your database on every request).
+
+
+
+
+*********Strategy ************
+3. What is a "Strategy"?
+A Strategy is Passport's way of supporting different methods of authentication. Think of it as a plugin or a specific set of instructions for a type of login.
+
+passport-local: A strategy for authenticating with a username and password stored in your own database.
+
+passport-google-oauth20: A strategy for authenticating using Google's OAuth 2.0 system (what we're using).
+
+
+
+
+These are important options for the express-session middleware.
+
+javascript
+app.use(session({
+  secret: 'your-secret-key',
+  resave: false,         // <-- Important
+  saveUninitialized: false, // <-- Important
+}));
+
+1. resave: false
+What it does: Forces the session to be saved back to the session store (e.g., your database) even if the session data was not modified during the request.
+Why set it to false: If your session store implements a "touch" command (which most do), you can set this to false. This prevents resaving the session if nothing changed, reducing unnecessary writes to your store and improving performance.
+
+2.saveUninitialized: false
+Why set it to false: This is a matter of privacy and compliance. If you set it to true, a session cookie will be set in the user's browser even if they are just visiting your site anonymously, without logging in. This can require a cookie consent banner in many jurisdictions (like under GDPR). By setting it to false, no session is created until you actually have data to store in it 
+(e.g., after the user successfully logs in and you put their user ID in the session).
+
+
+
+
+app.use(passport.initialize());
+What it does: This middleware initializes the Passport authentication framework on each request. 
+It ensures that Passport's functions are available for use in the subsequent middleware and routes.
+What it adds to the req object: It adds the Passport-specific methods to the incoming request (req) object, most importantly:
+req.login()
+req.logout()
+req.isAuthenticated()
+req.user (this gets populated after successful authentication)
+When is it used? It's always required. Even if you are using a token-based strategy (like JWT) that doesn't need sessions, you still need passport.initialize() to set up the basic framework.
+
+
+
+
+
+
+1. passport.use( ... )
+What it does: This is the Passport.js method for registering an authentication strategy. It's like telling Passport: "Hey, I want to use this specific method (Google OAuth) for logging in users."
+
+Analogy: It's like installing a plugin into your authentication system.
+
+
+2. new GoogleStrategy({ options }, callback)
+This creates a new instance of the Google OAuth 2.0 strategy. It takes two arguments:
+
+A configuration object with your app's credentials.
+
+A verify callback function that tells Passport what to do after a user successfully logs in with Google.
+
+
+
+{
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: 'http://localhost:3000/auth/google/callback',
+}
+
+
+
+
+
+
+
+The session works exactly the same way:
+
+Serialize: When you log in, Passport takes your bulky "user object" (your coat) and stores it away. It then puts a small, simple user ID (the ticket number) into the session.
+
+Deserialize: On every new request, Passport takes the user ID from the session (the ticket number) and uses it to go and fetch the full user object (your coat) so your app can use it.
+
+serializeUser: When you log in, this function runs. Instead of storing just the user's ID in the session, it stores the entire user object (the full Google profile).
+
+deserializeUser: On every subsequent request, this function runs. It receives whatever was stored in the session (which is the entire user object) and simply passes it along. It doesn't need to do any database lookup.
+
+
+
+
+
+
+**************************************************************************************************************************************************************************************************************************************************
+---------------------------OAUTH 2.0 FROM SCRATCH------------------------------------------------------
+🔑 OAuth 2.0 From Scratch
+1. What is OAuth 2.0?
+OAuth 2.0 = Authorization Framework (not authentication).
+It lets a user grant limited access to their resources without sharing their credentials (username/password).
+Example:
+You log into a website using Google Login.
+That website never sees your Google password.
+Instead, it gets a token from Google that says "Yes, this user is authenticated, and here’s what they can do."
+2. Key Roles in OAuth 2.0
+Resource Owner (User) → The person who owns the data (you).
+Client (Application) → The app that wants access (e.g., HRMS Portal).
+Authorization Server → The server that issues tokens (e.g., Google, GitHub).
+Resource Server (API) → The API that stores data (e.g., Google Drive API).
+
+5. Example: Google Login with OAuth 2.0
+🔹 Flow looks like this:
+User clicks "Login with Google".
+Redirected to Google Authorization Server.
+User logs in & approves permissions (scopes).
+Google redirects back to your app with an Authorization Code.
+Your app exchanges the code with Google for an Access Token + Refresh Token.
+Access Token is used to call Google APIs (e.g., get profile info).
+
+
+
+
+
+📌 Example: Login with Google in your HRMS portal
+1. User clicks "Login wit Google"
+
+You add a button in your frontend:
+👉 "Continue with Google".
+When clicked, your app sends the user to Google’s Authoriation Endpoint with some query params:
+
+client_id (your app’s unique ID from Google Cloud Console)
+redirect_uri (where Google should send the user back)
+scope (what data you want, e.g. email, profile)
+response_type=code
+🔹 Analogy: Think of this like going to a government office with an application form.
+2. Redirected to Google Authorization Server
+User is now on a Google login screen.
+If already logged in → it skips this.
+If not → they enter email + password.
+🔹 Analogy: At the office counter, you show your ID card.
+3. User approves permissions (Scopes)
+Google asks
+👉 “This app wants access to your email and profile. Do you allow?”
+User clicks Allow.
+🔹 Analogy: The officer asks: “Do you allow this app to use your ID copy?” You say Yes.
+4. Google redirects back with Authorization Code
+After approval, Google redirects the user back to your app’s redirect_uri.
+Example redirect:
+https://yourapp.com/auth/callback?code=4/dj39ak...
+The Authorization Code is a short-lived code (valid for a few minutes).
+🔹 Analogy: You get a stamped slip from the officer, which is NOT the final ID, but a token to claim your ID.
+5. Your app exchanges Code for Access Token + Refresh Token
+Your backend now calls Google’s Token Endpoint with:
+client_id
+client_secret
+code
+redirect_uri
+grant_type=authorization_code
+Google responds with:
+access_token (valid ~1 hour)
+refresh_token (long-lived, can request new access tokens)
+id_token (JWT containing user info like email, name, picture)
+🔹 Analogy: You go to another counter, submit your slip, and they give you a visitor pass (Access Token) + special re-entry card (Refresh Token).
+6. Use Access Token to call Google APIs
+Now your backend can call:
+GET https://www.googleapis.com/oauth2/v2/userinfo
+Authorization: Bearer <access_token>
+
+Google responds with user details:

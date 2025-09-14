@@ -1,0 +1,41 @@
+Projectflow.json
+.
+
+📌 Full Practical OAuth 2.0 Flow in Your App
+
+User visits http://localhost:3000/auth/google.
+
+Passport redirects user to Google’s Authorization Server.
+
+User logs into Google & approves permissions.
+
+Google sends back Authorization Code to /auth/google/callback.
+
+Passport exchanges code → gets Access Token + Profile Info.
+
+Passport stores/fetches user in MongoDB.
+
+Passport serializes user → puts user ID into session cookie.
+
+
+On next requests, session cookie is checked → user automatically loaded (deserializeUser).
+
+User can now access protected routes (/auth/profile).
+
+If they log out → session destroyed → must login again.
+
+
+
+
+⚡ So in short:
+
+index.js = Setup & middleware
+
+db.js = Connect DB
+
+userSchema.js = Store users
+
+passport.js = OAuth setup (Google Strategy)
+
+authRoutes.js = Rout
+
